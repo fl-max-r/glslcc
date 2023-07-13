@@ -32,6 +32,8 @@
 //      1.7.4       Added //@begin_vert //@begin_frag //@end tags in .glsl files
 //      1.7.5       List include names in the shader with -L argument
 //      1.7.6       Fixed bugs in parse output
+//      1.7.7       Add uniform block member reflection info
+//                  Strip invalid reflect data for sgs file
 //
 #define _ALLOW_KEYWORD_MACROS
 
@@ -77,7 +79,7 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 7
-#define VERSION_SUB 6
+#define VERSION_SUB 7
 
 static const sx_alloc* g_alloc = sx_alloc_malloc();
 static sgs_file* g_sgs = nullptr;
@@ -551,10 +553,10 @@ static const uniform_type_mapping k_uniform_map[] = {
     { spirv_cross::SPIRType::Float, 2, 1, "float2", SGS_VERTEXFORMAT_FLOAT2 },
     { spirv_cross::SPIRType::Float, 3, 1, "float3", SGS_VERTEXFORMAT_FLOAT3 },
     { spirv_cross::SPIRType::Float, 4, 1, "float4", SGS_VERTEXFORMAT_FLOAT4 },
-    { spirv_cross::SPIRType::Float, 3, 4, "mat3x4", 0 },
-    { spirv_cross::SPIRType::Float, 3, 4, "mat4x3", 0 },
-    { spirv_cross::SPIRType::Float, 3, 3, "mat3x3", 0 },
-    { spirv_cross::SPIRType::Float, 4, 4, "mat4", 0 },
+    { spirv_cross::SPIRType::Float, 3, 4, "mat3x4", SGS_VERTEXFORMAT_MAT34 },
+    { spirv_cross::SPIRType::Float, 3, 4, "mat4x3", SGS_VERTEXFORMAT_MAT43 },
+    { spirv_cross::SPIRType::Float, 3, 3, "mat3", SGS_VERTEXFORMAT_MAT3 },
+    { spirv_cross::SPIRType::Float, 4, 4, "mat4", SGS_VERTEXFORMAT_MAT4 },
     { spirv_cross::SPIRType::Int, 1, 1, "int", SGS_VERTEXFORMAT_INT },
     { spirv_cross::SPIRType::Int, 2, 1, "int2", SGS_VERTEXFORMAT_INT2 },
     { spirv_cross::SPIRType::Int, 3, 1, "int3", SGS_VERTEXFORMAT_INT3 },
@@ -891,6 +893,17 @@ static void output_reflection_json(const cmd_args& args, const spirv_cross::Comp
     sjson_destroy_context(jctx);
 }
 
+static int compute_array_size(const spirv_cross::SPIRType& type) {
+    if (type.array.empty())
+        return 1;
+    else {
+        int arr_sz = 0;
+        for (auto arr : type.array)
+            arr_sz += static_cast<int>(arr);
+        return arr_sz;
+    }
+}
+
 static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
     const spirv_cross::Compiler& compiler,
     const spirv_cross::SmallVector<spirv_cross::Resource>& ress,
@@ -936,13 +949,7 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
 
         const char* name = !res.name.empty() ? res.name.c_str() : compiler.get_fallback_name(fallback_id).c_str();
 
-        int array_size = 1;
-        if (!type.array.empty()) {
-            int arr_sz = 0;
-            for (auto arr : type.array)
-                arr_sz += arr;
-            array_size = arr_sz;
-        }
+        int array_size = compute_array_size(type);
 
         int loc = -1;
         int binding = -1;
@@ -956,17 +963,32 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
 
         // Some extra
         if (res_type == RES_TYPE_UNIFORM_BUFFER) {
-            sgs_refl_uniformbuffer u = { 0 };
+            sgs_refl_ub u = { 0 };
 
             sx_strcpy(u.name, sizeof(u.name), name);
             u.binding = binding;
             u.size_bytes = block_size;
             if (flatten_ubos) {
                 u.array_size = (uint16_t)sx_max((int)block_size, 16) / 16;
+                u.num_members = 0;
             } else {
                 u.array_size = array_size;
+                u.num_members = static_cast<uint16_t>(type.member_types.size());
             }
             sx_mem_write_var(w, u);
+
+            if (u.num_members > 0) {
+                for (int member_idx = 0; member_idx < type.member_types.size(); ++member_idx) {
+                    auto& member_type = compiler.get_type(type.member_types[member_idx]);
+                    sgs_refl_ub_member um = { 0 };
+                    sx_strcpy(um.name, sizeof(um.name), compiler.get_member_name(type.self, member_idx).c_str());
+                    um.offset = compiler.type_struct_member_offset(type, member_idx);
+                    um.size_bytes = static_cast<uint32_t>(compiler.get_declared_struct_member_size(type, member_idx));
+                    um.array_size = static_cast<uint16_t>(compute_array_size(member_type));
+                    um.format = resolve_variable_type(member_type);
+                    sx_mem_write_var(w, um);
+                }
+            }
         } else if (res_type == RES_TYPE_TEXTURE) {
             sgs_refl_texture t = { 0 };
 
@@ -1000,7 +1022,7 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
     }
 }
 
-static int64_t output_reflection_bin(const cmd_args& args, const spirv_cross::Compiler& compiler,
+static int output_reflection_bin(const cmd_args& args, const spirv_cross::Compiler& compiler,
     const spirv_cross::ShaderResources& ress,
     const char* filename,
     EShLanguage stage, sx_mem_block** refl_mem)
@@ -1046,7 +1068,7 @@ static int64_t output_reflection_bin(const cmd_args& args, const spirv_cross::Co
 
     *refl_mem = w.mem;
 
-    return sx_mem_seekw(&w, 0, SX_WHENCE_END);
+    return static_cast<int>(sx_mem_seekw(&w, 0, SX_WHENCE_END));
 }
 
 // if binary_size > 0, then we assume the data is binary
@@ -1294,7 +1316,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 sx_os_path_splitext(ext, sizeof(ext), basename, sizeof(basename), args.out_filepath);
                 filepath = std::string(basename) + std::string("_") + std::string(get_stage_name(stage)) + std::string(ext);
             }
-            bool append = !cvar_code.empty() & (file_index > 0);
+            bool append = !cvar_code.empty() && (file_index > 0);
 
             // Check if we have to compile byte-code or output the source only
             if (args.compile_bin) {

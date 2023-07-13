@@ -35,6 +35,10 @@
 #define SGS_VERTEXFORMAT_INT2       sx_makefourcc('I', 'N', 'T', '2')
 #define SGS_VERTEXFORMAT_INT3       sx_makefourcc('I', 'N', 'T', '3')
 #define SGS_VERTEXFORMAT_INT4       sx_makefourcc('I', 'N', 'T', '4')
+#define SGS_VERTEXFORMAT_MAT3       sx_makefourcc('M', 'A', 'T', '3')
+#define SGS_VERTEXFORMAT_MAT4       sx_makefourcc('M', 'A', 'T', '4')
+#define SGS_VERTEXFORMAT_MAT34      sx_makefourcc('M', 'T', '3', '4')
+#define SGS_VERTEXFORMAT_MAT43      sx_makefourcc('M', 'T', '4', '3')
 
 #define SGS_STAGE_VERTEX            sx_makefourcc('V', 'E', 'R', 'T')
 #define SGS_STAGE_FRAGMENT          sx_makefourcc('F', 'R', 'A', 'G')
@@ -95,13 +99,21 @@ struct sgs_refl_buffer {
     uint32_t array_stride;
 }; 
 
-struct sgs_refl_uniformbuffer {
+typedef struct sgs_refl_uniformbuffer {
     char     name[32];
     int32_t  binding;
     uint32_t size_bytes;
     uint16_t array_size;
-};
+    uint16_t num_members;
+} sgs_refl_ub;
 
+typedef struct sgs_refl_uniformbuffer_member {
+    char     name[32];
+    int32_t  offset;
+    uint32_t size_bytes;
+    uint16_t array_size;
+    uint32_t format;
+} sgs_refl_ub_member;
 #pragma pack(pop)
 
 struct sgs_file;
