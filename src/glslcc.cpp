@@ -54,12 +54,13 @@
 #include "SPIRV/disassemble.h"
 #include "SPIRV/spirv.hpp"
 
+#include "glslang/Public/ResourceLimits.h"
+
 #include "spirv_cross.hpp"
 #include "spirv_glsl.hpp"
 #include "spirv_hlsl.hpp"
 #include "spirv_msl.hpp"
 
-#include "config.h"
 #include "sgs-file.h"
 
 #ifdef D3D11_COMPILER
@@ -1899,7 +1900,7 @@ int main(int argc, char* argv[])
     }
 
     if (dump_conf) {
-        puts(get_default_conf_str().c_str());
+        puts(GetDefaultTBuiltInResourceString().c_str());
         exit(0);
     }
 
@@ -1990,7 +1991,7 @@ int main(int argc, char* argv[])
         sx_assert(g_sgs);
     }
 
-    int r = compile_files(args, k_default_conf);
+    int r = compile_files(args, *GetDefaultResources());
 
     if (g_sgs) {
         if (r == 0 && !sgs_commit(g_sgs)) {

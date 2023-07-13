@@ -54,6 +54,7 @@ if (MSVC)
 	endif()
 endif()
 
+set(ENABLE_CTEST FALSE CACHE BOOL "" FORCE)
 add_subdirectory(3rdparty/glslang)
 add_subdirectory(3rdparty/spirv-cross)
 add_subdirectory(3rdparty/sx)

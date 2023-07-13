@@ -36,9 +36,9 @@
 #ifndef HLSL_PARSE_INCLUDED_
 #define HLSL_PARSE_INCLUDED_
 
-#include "../glslang/MachineIndependent/parseVersions.h"
-#include "../glslang/MachineIndependent/ParseHelper.h"
-#include "../glslang/MachineIndependent/attribute.h"
+#include "../MachineIndependent/parseVersions.h"
+#include "../MachineIndependent/ParseHelper.h"
+#include "../MachineIndependent/attribute.h"
 
 #include <array>
 
@@ -60,8 +60,8 @@ public:
     virtual const char* getGlobalUniformBlockName() const override { return "$Global"; }
     virtual void setUniformBlockDefaults(TType& block) const override
     {
-        block.getQualifier().layoutPacking = ElpStd140;
-        block.getQualifier().layoutMatrix = ElmRowMajor;
+        block.getQualifier().layoutPacking = globalUniformDefaults.layoutPacking;
+        block.getQualifier().layoutMatrix = globalUniformDefaults.layoutMatrix;
     }
 
     void reservedPpErrorCheck(const TSourceLoc&, const char* /*name*/, const char* /*op*/) override { }
@@ -87,6 +87,7 @@ public:
     void handleFunctionBody(const TSourceLoc&, TFunction&, TIntermNode* functionBody, TIntermNode*& node);
     void remapEntryPointIO(TFunction& function, TVariable*& returnValue, TVector<TVariable*>& inputs, TVector<TVariable*>& outputs);
     void remapNonEntryPointIO(TFunction& function);
+    TIntermNode* handleDeclare(const TSourceLoc&, TIntermTyped*);
     TIntermNode* handleReturnValue(const TSourceLoc&, TIntermTyped*);
     void handleFunctionArgument(TFunction*, TIntermTyped*& arguments, TIntermTyped* newArg);
     TIntermTyped* handleAssign(const TSourceLoc&, TOperator, TIntermTyped* left, TIntermTyped* right);
@@ -94,6 +95,7 @@ public:
     TIntermTyped* handleFunctionCall(const TSourceLoc&, TFunction*, TIntermTyped*);
     TIntermAggregate* assignClipCullDistance(const TSourceLoc&, TOperator, int semanticId, TIntermTyped* left, TIntermTyped* right);
     TIntermTyped* assignPosition(const TSourceLoc&, TOperator, TIntermTyped* left, TIntermTyped* right);
+    TIntermTyped* assignFromFragCoord(const TSourceLoc&, TOperator, TIntermTyped* left, TIntermTyped* right);
     void decomposeIntrinsic(const TSourceLoc&, TIntermTyped*& node, TIntermNode* arguments);
     void decomposeSampleMethods(const TSourceLoc&, TIntermTyped*& node, TIntermNode* arguments);
     void decomposeStructBufferMethods(const TSourceLoc&, TIntermTyped*& node, TIntermNode* arguments);
@@ -145,14 +147,14 @@ public:
     void declareTypedef(const TSourceLoc&, const TString& identifier, const TType&);
     void declareStruct(const TSourceLoc&, TString& structName, TType&);
     TSymbol* lookupUserType(const TString&, TType&);
-    TIntermNode* declareVariable(const TSourceLoc&, const TString& identifier, TType&, TIntermTyped* initializer = 0);
+    TIntermNode* declareVariable(const TSourceLoc&, const TString& identifier, TType&, TIntermTyped* initializer = nullptr);
     void lengthenList(const TSourceLoc&, TIntermSequence& list, int size, TIntermTyped* scalarInit);
     TIntermTyped* handleConstructor(const TSourceLoc&, TIntermTyped*, const TType&);
     TIntermTyped* addConstructor(const TSourceLoc&, TIntermTyped*, const TType&);
     TIntermTyped* convertArray(TIntermTyped*, const TType&);
     TIntermTyped* constructAggregate(TIntermNode*, const TType&, int, const TSourceLoc&);
     TIntermTyped* constructBuiltIn(const TType&, TOperator, TIntermTyped*, const TSourceLoc&, bool subset);
-    void declareBlock(const TSourceLoc&, TType&, const TString* instanceName = 0);
+    void declareBlock(const TSourceLoc&, TType&, const TString* instanceName = nullptr);
     void declareStructBufferCounter(const TSourceLoc& loc, const TType& bufferType, const TString& name);
     void fixBlockLocations(const TSourceLoc&, TQualifier&, TTypeList&, bool memberWithLocation, bool memberWithoutLocation);
     void fixXfbOffsets(TQualifier&, TTypeList&);
@@ -169,10 +171,10 @@ public:
     void unnestAnnotations() { --annotationNestingLevel; }
     int getAnnotationNestingLevel() { return annotationNestingLevel; }
     void pushScope()         { symbolTable.push(); }
-    void popScope()          { symbolTable.pop(0); }
+    void popScope()          { symbolTable.pop(nullptr); }
 
     void pushThisScope(const TType&, const TVector<TFunctionDeclarator>&);
-    void popThisScope()      { symbolTable.pop(0); }
+    void popThisScope()      { symbolTable.pop(nullptr); }
 
     void pushImplicitThis(TVariable* thisParameter) { implicitThisStack.push_back(thisParameter); }
     void popImplicitThis() { implicitThisStack.pop_back(); }
@@ -182,6 +184,11 @@ public:
     void popNamespace();
     void getFullNamespaceName(TString*&) const;
     void addScopeMangler(TString&);
+
+    void beginParameterParsing(TFunction& function)
+    {
+        parsingEntrypointParameters = isEntrypointName(function.getName());
+    }
 
     void pushSwitchSequence(TIntermSequence* sequence) { switchSequenceStack.push_back(sequence); }
     void popSwitchSequence() { switchSequenceStack.pop_back(); }
@@ -237,22 +244,24 @@ protected:
     TIntermSymbol* makeInternalVariableNode(const TSourceLoc&, const char* name, const TType&) const;
     TVariable* declareNonArray(const TSourceLoc&, const TString& identifier, const TType&, bool track);
     void declareArray(const TSourceLoc&, const TString& identifier, const TType&, TSymbol*&, bool track);
+    TIntermNode* executeDeclaration(const TSourceLoc&, TVariable* variable);
     TIntermNode* executeInitializer(const TSourceLoc&, TIntermTyped* initializer, TVariable* variable);
     TIntermTyped* convertInitializerList(const TSourceLoc&, const TType&, TIntermTyped* initializer, TIntermTyped* scalarInit);
     bool isScalarConstructor(const TIntermNode*);
     TOperator mapAtomicOp(const TSourceLoc& loc, TOperator op, bool isImage);
+    bool isEntrypointName(const TString& name) { return name.compare(intermediate.getEntryPointName().c_str()) == 0; }
 
     // Return true if this node requires L-value conversion (e.g, to an imageStore).
     bool shouldConvertLValue(const TIntermNode*) const;
 
     // Array and struct flattening
     TIntermTyped* flattenAccess(TIntermTyped* base, int member);
-    TIntermTyped* flattenAccess(int uniqueId, int member, TStorageQualifier outerStorage, const TType&, int subset = -1);
+    TIntermTyped* flattenAccess(long long uniqueId, int member, TStorageQualifier outerStorage, const TType&, int subset = -1);
     int findSubtreeOffset(const TIntermNode&) const;
     int findSubtreeOffset(const TType&, int subset, const TVector<int>& offsets) const;
     bool shouldFlatten(const TType&, TStorageQualifier, bool topLevel) const;
     bool wasFlattened(const TIntermTyped* node) const;
-    bool wasFlattened(int id) const { return flattenMap.find(id) != flattenMap.end(); }
+    bool wasFlattened(long long id) const { return flattenMap.find(id) != flattenMap.end(); }
     int  addFlattenedMember(const TVariable&, const TType&, TFlattenData&, const TString& name, bool linkage,
                             const TQualifier& outerQualifier, const TArraySizes* builtInArraySizes);
 
@@ -261,8 +270,8 @@ protected:
     void splitBuiltIn(const TString& baseName, const TType& memberType, const TArraySizes*, const TQualifier&);
     const TType& split(const TType& type, const TString& name, const TQualifier&);
     bool wasSplit(const TIntermTyped* node) const;
-    bool wasSplit(int id) const { return splitNonIoVars.find(id) != splitNonIoVars.end(); }
-    TVariable* getSplitNonIoVar(int id) const;
+    bool wasSplit(long long id) const { return splitNonIoVars.find(id) != splitNonIoVars.end(); }
+    TVariable* getSplitNonIoVar(long long id) const;
     void addPatchConstantInvocation();
     void fixTextureShadowModes();
     void finalizeAppendMethods();
@@ -270,7 +279,7 @@ protected:
 
     void fixBuiltInIoType(TType&);
 
-    void flatten(const TVariable& variable, bool linkage);
+    void flatten(const TVariable& variable, bool linkage, bool arrayed = false);
     int flatten(const TVariable& variable, const TType&, TFlattenData&, TString name, bool linkage,
                 const TQualifier& outerQualifier, const TArraySizes* builtInArraySizes);
     int flattenStruct(const TVariable& variable, const TType&, TFlattenData&, TString name, bool linkage,
@@ -314,7 +323,7 @@ protected:
     // Finalization step: remove unused buffer blocks from linkage (we don't know until the
     // shader is entirely compiled)
     void removeUnusedStructBufferCounters();
- 
+
     static bool isClipOrCullDistance(TBuiltInVariable);
     static bool isClipOrCullDistance(const TQualifier& qual) { return isClipOrCullDistance(qual.builtIn); }
     static bool isClipOrCullDistance(const TType& type) { return isClipOrCullDistance(type.getQualifier()); }
@@ -380,7 +389,7 @@ protected:
     //
     TVector<TSymbol*> ioArraySymbolResizeList;
 
-    TMap<int, TFlattenData> flattenMap;
+    TMap<long long, TFlattenData> flattenMap;
 
     // IO-type map. Maps a pure symbol-table form of a structure-member list into
     // each of the (up to) three kinds of IO, as each as different allowed decorations,
@@ -393,7 +402,7 @@ protected:
     TMap<const TTypeList*, tIoKinds> ioTypeMap;
 
     // Structure splitting data:
-    TMap<int, TVariable*> splitNonIoVars;  // variables with the built-in interstage IO removed, indexed by unique ID.
+    TMap<long long, TVariable*> splitNonIoVars;  // variables with the built-in interstage IO removed, indexed by unique ID.
 
     // Structuredbuffer shared types.  Typically there are only a few.
     TVector<TType*> structBufferTypes;
@@ -401,7 +410,7 @@ protected:
     // This tracks texture sample user structure return types.  Only a limited number are supported, as
     // may fit in TSampler::structReturnIndex.
     TVector<TTypeList*> textureReturnStruct;
-    
+
     TMap<TString, bool> structBufferCounter;  // true if counter buffer is in use
 
     // The built-in interstage IO map considers e.g, EvqPosition on input and output separately, so that we
@@ -450,7 +459,7 @@ protected:
     std::array<int, maxClipCullRegs> cullSemanticNSizeOut; // vector, indexed by cull semantic ID
 
     // This tracks the first (mip level) argument to the .mips[][] operator.  Since this can be nested as
-    // in tx.mips[tx.mips[0][1].x][2], we need a stack.  We also track the TSourceLoc for error reporting 
+    // in tx.mips[tx.mips[0][1].x][2], we need a stack.  We also track the TSourceLoc for error reporting
     // purposes.
     struct tMipsOperatorData {
         tMipsOperatorData(TSourceLoc l, TIntermTyped* m) : loc(l), mipLevel(m) { }
@@ -482,18 +491,19 @@ protected:
     struct tShadowTextureSymbols {
         tShadowTextureSymbols() { symId.fill(-1); }
 
-        void set(bool shadow, int id) { symId[int(shadow)] = id; }
-        int get(bool shadow) const { return symId[int(shadow)]; }
+        void set(bool shadow, long long id) { symId[int(shadow)] = id; }
+        long long get(bool shadow) const { return symId[int(shadow)]; }
 
         // True if this texture has been seen with both shadow and non-shadow modes
         bool overloaded() const { return symId[0] != -1 && symId[1] != -1; }
-        bool isShadowId(int id) const { return symId[1] == id; }
+        bool isShadowId(long long id) const { return symId[1] == id; }
 
     private:
-        std::array<int, 2> symId;
+        std::array<long long, 2> symId;
     };
 
-    TMap<int, tShadowTextureSymbols*> textureShadowVariant;
+    TMap<long long, tShadowTextureSymbols*> textureShadowVariant;
+    bool parsingEntrypointParameters;
 };
 
 // This is the prefix we use for built-in methods to avoid namespace collisions with

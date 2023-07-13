@@ -110,9 +110,9 @@ typedef struct sgs_refl_uniformbuffer {
 typedef struct sgs_refl_uniformbuffer_member {
     char     name[32];
     int32_t  offset;
+    uint32_t format;
     uint32_t size_bytes;
     uint16_t array_size;
-    uint32_t format;
 } sgs_refl_ub_member;
 #pragma pack(pop)
 
