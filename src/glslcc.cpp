@@ -986,7 +986,7 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
     }
 }
 
-static void output_reflection_bin(const cmd_args& args, const spirv_cross::Compiler& compiler,
+static int64_t output_reflection_bin(const cmd_args& args, const spirv_cross::Compiler& compiler,
     const spirv_cross::ShaderResources& ress,
     const char* filename,
     EShLanguage stage, sx_mem_block** refl_mem)
@@ -1031,6 +1031,8 @@ static void output_reflection_bin(const cmd_args& args, const spirv_cross::Compi
     sx_mem_write_var(&w, refl);
 
     *refl_mem = w.mem;
+
+    return sx_mem_seekw(&w, 0, SX_WHENCE_END);
 }
 
 // if binary_size > 0, then we assume the data is binary
@@ -1261,8 +1263,8 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 }
 
                 sx_mem_block* mem = nullptr;
-                output_reflection_bin(args, *compiler, ress, args.out_filepath, stage, &mem);
-                sgs_add_stage_reflect(g_sgs, sstage, mem->data, mem->size);
+                auto refl_bytes = output_reflection_bin(args, *compiler, ress, args.out_filepath, stage, &mem);
+                sgs_add_stage_reflect(g_sgs, sstage, mem->data, refl_bytes);
                 sx_mem_destroy_block(mem);
             }
         } else {
