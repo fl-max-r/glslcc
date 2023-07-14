@@ -41,8 +41,8 @@ jobs:
         ls -R glslcc-osx
         mkdir -p pkg_dir
         prefix=glslcc-${{github.event.inputs.version}}
-        tar -czvf $prefix-linux.tar.gz -C ./pkg_dir/glslcc-linux glslcc
-        tar -czvf $prefix-osx.tar.gz -C ./pkg_dir/glslcc-osx glslcc
+        tar -czvf ./pkg_dir/$prefix-linux.tar.gz -C ./glslcc-linux glslcc
+        tar -czvf ./pkg_dir/$prefix-osx.tar.gz -C ./glslcc-osx glslcc
         sh -c "cd ./glslcc-win64; zip ../pkg_dir/$prefix-win64.zip glslcc.exe" 
     - name: Publish to github release page
       if: ${{ env.RELEASE_TAG_NAME != '' }}
