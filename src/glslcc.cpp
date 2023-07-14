@@ -32,8 +32,10 @@
 //      1.7.4       Added //@begin_vert //@begin_frag //@end tags in .glsl files
 //      1.7.5       List include names in the shader with -L argument
 //      1.7.6       Fixed bugs in parse output
-//      1.7.7       Add uniform block member reflection info
+//      1.8.0       Add uniform block member reflection info
 //                  Strip invalid reflect data for sgs file
+//                  Fix attribs reflect info location not match with translated MSL shaders
+//                  Update SPIRV-Cross & glslang to latest on 7/13/2023
 //
 #define _ALLOW_KEYWORD_MACROS
 
@@ -79,8 +81,8 @@
 #include "../3rdparty/sjson/sjson.h"
 
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 7
-#define VERSION_SUB 7
+#define VERSION_MINOR 8
+#define VERSION_SUB 0
 
 static const sx_alloc* g_alloc = sx_alloc_malloc();
 static sgs_file* g_sgs = nullptr;
