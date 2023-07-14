@@ -960,7 +960,7 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
         else
             mask = compiler.get_decoration_bitset(res.id);
 
-        const char* name = !res.name.empty() ? res.name.c_str() : compiler.get_fallback_name(fallback_id).c_str();
+        auto&& name = !res.name.empty() ? res.name : compiler.get_fallback_name(fallback_id);
 
         int array_size = compute_array_size(type);
 
@@ -978,7 +978,7 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
         if (res_type == RES_TYPE_UNIFORM_BUFFER) {
             sgs_refl_ub u = { 0 };
 
-            sx_strcpy(u.name, sizeof(u.name), name);
+            sx_strcpy(u.name, sizeof(u.name), name.c_str());
             u.binding = binding;
             u.size_bytes = block_size;
             if (flatten_ubos) {
@@ -1005,7 +1005,7 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
         } else if (res_type == RES_TYPE_TEXTURE) {
             sgs_refl_texture t = { 0 };
 
-            sx_strcpy(t.name, sizeof(t.name), name);
+            sx_strcpy(t.name, sizeof(t.name), name.c_str());
             t.binding = binding;
             t.image_dim = k_texture_dim_fourcc[type.image.dim];
             t.multisample = type.image.ms ? 1 : 0;
@@ -1014,7 +1014,7 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
         } else if (res_type == RES_TYPE_VERTEX_INPUT) {
             sgs_refl_input i = { 0 };
 
-            sx_strcpy(i.name, sizeof(i.name), name);
+            sx_strcpy(i.name, sizeof(i.name), name.c_str());
             i.loc = loc;
             sx_strcpy(i.semantic, sizeof(i.semantic), k_attrib_sem_names[loc]);
             i.semantic_index = k_attrib_sem_indices[loc];
@@ -1022,7 +1022,7 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
             sx_mem_write_var(w, i);
         } else if (res_type == RES_TYPE_SSBO) {
             sgs_refl_buffer b = { 0 };
-            sx_strcpy(b.name, sizeof(b.name), name);
+            sx_strcpy(b.name, sizeof(b.name), name.c_str());
             b.binding = binding;
             b.size_bytes = block_size;
             if (runtime_array_stride) {
@@ -1133,9 +1133,9 @@ static bool write_file(const std::string& filepath, const char* data, const std:
         }
         const char* aligned_ptr = (const char*)aligned_data;
 
-        sx_snprintf(var, sizeof(var), "static const unsigned int %s_size = %d;\n", cvar, len);
+        sx_snprintf(var, sizeof(var), "static const unsigned int %s_size = %d;\n", cvar.c_str(), len);
         sx_file_write_text(&writer, var);
-        sx_snprintf(var, sizeof(var), "static const unsigned int %s_data[%d/4] = {\n    ", cvar, aligned_len);
+        sx_snprintf(var, sizeof(var), "static const unsigned int %s_data[%d/4] = {\n    ", cvar.c_str(), aligned_len);
         sx_file_write_text(&writer, var);
 
         sx_assert(aligned_len % sizeof(uint32_t) == 0);
