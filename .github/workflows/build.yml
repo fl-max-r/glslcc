@@ -2,6 +2,8 @@ name: build
 
 on:
   push:
+    paths-ignore:
+      '.github/workflows/dist.yml'
 
 jobs:
   win64:
