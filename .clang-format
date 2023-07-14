@@ -1,0 +1,13 @@
+# This file is copy from https://github.com/google/angle with some modifications
+# Defines the axmol style for automatic reformatting.
+# https://code.google.com/p/angleproject/wiki/CodingStandard
+# See Clang docs: http://clang.llvm.org/docs/ClangFormatStyleOptions.html
+BasedOnStyle: WebKit
+
+# Allow double brackets such as std::vector<std::vector<int>>.
+Standard: Cpp11
+
+# Indent 4 spaces at a time.
+IndentWidth: 4
+
+SpaceInEmptyBlock: false
