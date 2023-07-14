@@ -30,7 +30,7 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v3
       with:
-        path: ./build/src/Release/glslcc
+        path: ./build/src/glslcc
         name: glslcc-linux
   osx:
     runs-on: macos-latest
@@ -48,5 +48,5 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v3
       with:
-        path: ./build/src/Release/glslcc
+        path: ./build/src/glslcc
         name: glslcc-osx

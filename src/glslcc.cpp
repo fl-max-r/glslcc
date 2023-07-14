@@ -39,6 +39,7 @@
 //                  Add SPIRV output support
 //                  Indent with spaces instead Tab when output cvar header file
 //                  Rename shader lang `gles` to `essl`
+//                  Add option -a --automap to remove binding and location requirement in shader
 //
 #define _ALLOW_KEYWORD_MACROS
 
@@ -319,6 +320,7 @@ struct cmd_args {
     int invert_y;
     int preprocess;
     int flatten_ubos;
+    int automap;
     int sgs_file;
     int reflect;
     int compile_bin;
@@ -1339,7 +1341,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
             } else {
                 // output code file
                 auto ok = (args.lang != SHADER_LANG_SPIRV) ? write_file(filepath, code.c_str(), cvar_code, append) : 
-                    write_file(filepath, reinterpret_cast<const char*>(spirv.data()), cvar_code, append, spirv.size() * sizeof(uint32_t));
+                    write_file(filepath, reinterpret_cast<const char*>(spirv.data()), cvar_code, append, static_cast<int>(spirv.size() * sizeof(uint32_t)));
                 if (!ok) {
                     printf("Writing to '%s' failed\n", filepath.c_str());
                     return -1;
@@ -1672,6 +1674,13 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         shader->setEnvInput(glslang::EShSourceGlsl, files[i].stage, glslang::EShClientVulkan, default_version);
         shader->setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_1);
         shader->setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
+
+        // refer to: https://github.com/septag/glslcc/issues/18
+        if (args.automap) {
+            shader->setAutoMapBindings(true);
+            shader->setAutoMapLocations(true);
+        }
+
         add_defines(shader, args, def);
 
         std::string prep_str;
@@ -1784,6 +1793,7 @@ int main(int argc, char* argv[])
         { "compute", 'c', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'c', "Compute shader source file", "Filepath" },
         { "output", 'o', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'o', "Output file", "Filepath" },
         { "lang", 'l', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'l', "Convert to shader language", "essl/msl/hlsl/glsl/spirv" },
+        { "automap", 'a', SX_CMDLINE_OPTYPE_OPTIONAL, &args.automap, 'a', "Enable AutoMap to remove binding and location requirement in shader", 0x0 },
         { "defines", 'D', SX_CMDLINE_OPTYPE_OPTIONAL, 0x0, 'D', "Preprocessor definitions, seperated by comma or ';'", "Defines" },
         { "invert-y", 'Y', SX_CMDLINE_OPTYPE_FLAG_SET, &args.invert_y, 1, "Invert position.y in vertex shader", 0x0 },
         { "profile", 'p', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'p', "Shader profile version (HLSL: 40, 50, 60), (ES: 200, 300), (GLSL: 330, 400, 420)", "ProfileVersion" },
