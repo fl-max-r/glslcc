@@ -1217,17 +1217,13 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
         }
 
         // Reset vertex input locations for MSL
-        std::vector<int> old_locs;
         if (args.lang == SHADER_LANG_MSL && stage == EShLangVertex) {
             for (int i = 0; i < ress.stage_inputs.size(); i++) {
                 spirv_cross::Resource& res = ress.stage_inputs[i];
                 spirv_cross::Bitset mask = compiler->get_decoration_bitset(res.id);
 
                 if (mask.get(spv::DecorationLocation)) {
-                    old_locs.push_back(compiler->get_decoration(res.id, spv::DecorationLocation));
                     compiler->set_decoration(res.id, spv::DecorationLocation, (uint32_t)i);
-                } else {
-                    old_locs.push_back(-1);
                 }
             }
         }
@@ -1285,20 +1281,6 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
             }
 
             if (args.reflect) {
-                // turn back location attributs for reflection
-                if (!old_locs.empty()) {
-                    sx_assert(old_locs.size() == ress.stage_inputs.size());
-                    for (int i = 0; i < ress.stage_inputs.size(); i++) {
-                        spirv_cross::Resource& res = ress.stage_inputs[i];
-                        spirv_cross::Bitset mask = compiler->get_decoration_bitset(res.id);
-                        if (old_locs[i] != -1) {
-                            sx_assert(mask.get(spv::DecorationLocation));
-                            old_locs.push_back(compiler->get_decoration(res.id, spv::DecorationLocation));
-                            compiler->set_decoration(res.id, spv::DecorationLocation, old_locs[i]);
-                        }
-                    }
-                }
-
                 sx_mem_block* mem = nullptr;
                 auto refl_bytes = output_reflection_bin(args, *compiler, ress, args.out_filepath, stage, &mem);
                 sgs_add_stage_reflect(g_sgs, sstage, mem->data, refl_bytes);
