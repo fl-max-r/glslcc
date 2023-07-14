@@ -61,7 +61,7 @@
 #include "spirv_hlsl.hpp"
 #include "spirv_msl.hpp"
 
-#include "sgs-file.h"
+#include "sgs-writer.h"
 
 #ifdef D3D11_COMPILER
 #include <d3dcompiler.h>

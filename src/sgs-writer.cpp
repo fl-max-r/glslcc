@@ -3,7 +3,7 @@
 // License: https://github.com/septag/glslcc#license-bsd-2-clause
 //
 
-#include "sgs-file.h"
+#include "sgs-writer.h"
 
 #include "sx/io.h"
 #include "sx/array.h"

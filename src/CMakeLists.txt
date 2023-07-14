@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
 
 set(SOURCE_FILES "glslcc.cpp"
-                 "sgs-file.h" 
-                 "sgs-file.cpp")
+                 "sgs-spec.h"
+                 "sgs-writer.h" 
+                 "sgs-writer.cpp")
 				 
 add_executable(glslcc ${SOURCE_FILES})
 
