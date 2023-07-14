@@ -71,6 +71,7 @@ I'll have to write a more detailed documentation but for these are the arguments
 -c --compute=<Filepath>              : Compute shader source file
 -o --output=<Filepath>               : Output file
 -l --lang=<essl/msl/hlsl/glsl/spirv> : Convert to shader language
+-a --automap                         : This option remove binding and location requirement in shader
 -D --defines(=Defines)               : Preprocessor definitions, seperated by comma or ';'
 -Y --invert-y                        : Invert position.y in vertex shader
 -p --profile=<ProfileVersion>        : Shader profile version (HLSL: 40, 50, 60), (ES: 200, 300), (GLSL: 330, 400, 420)
