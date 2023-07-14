@@ -279,9 +279,9 @@ GETOPT_API const char* getopt_create_help_string( getopt_context_t* ctx, char* b
 		}
 
 		if(opt->name_short == 0x0)
-			chars_written = getopt__str_format( buffer + buffer_pos, buffer_size - buffer_pos, "   %-32s - %s\n", long_name, opt->desc );
+			chars_written = getopt__str_format( buffer + buffer_pos, buffer_size - buffer_pos, "   %-33s : %s\n", long_name, opt->desc );
 		else
-			chars_written = getopt__str_format( buffer + buffer_pos, buffer_size - buffer_pos, "-%c %-32s - %s\n", opt->name_short, long_name, opt->desc);
+			chars_written = getopt__str_format( buffer + buffer_pos, buffer_size - buffer_pos, "-%c %-33s : %s\n", opt->name_short, long_name, opt->desc);
 
 		if( chars_written < 0 )
 			return buffer;

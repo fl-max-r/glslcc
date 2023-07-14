@@ -1,7 +1,7 @@
-## glslcc: Cross-compiler for GLSL shader language (GLSL->HLSL,METAL,GLES,GLSLv3)
+## glslcc: Cross-compiler for GLSL shader language (GLSL/ESSL->HLSL,METAL,ESSL,SPIRV)
 [@septag](https://twitter.com/septagh)
 
-**glslcc** is a command line tool that converts GLSL code to HLSL, GLES (version 2.0 and 3.0), Metal (MSL) and also other GLSL versions (GLSL 330, GLSL 400, etc..).  
+**glslcc** is a command line tool that converts GLSL code to HLSL, ESSL (version 2.0 and 3.0), Metal (MSL) and also other GLSL versions (GLSL 330, GLSL 400, etc..).  
 It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and compiling SPIR-V. And [SPIRV-cross](https://github.com/KhronosGroup/SPIRV-Cross) for converting the code from SPIR-V to the target language.  
 
 ### Features
@@ -57,36 +57,38 @@ See below for further examples of command line args
 ./glslcc.exe --vert=path/to/shader.vert --frag=path/to/shader.frag --output=path/to/shader.hlsl --lang=hlsl --reflect
 ```
 
+*Note: The input shader must be GLSL 450+ or ESSL 310+*
+
 ### Usage
 
 I'll have to write a more detailed documentation but for these are the arguments: (```glslcc --help```)
 
 ```
--h --help                           - Print this help text
--V --version                        - Print version
--v --vert=<Filepath>                - Vertex shader source file
--f --frag=<Filepath>                - Fragment shader source file
--c --compute=<Filepath>             - Compute shader source file
--o --output=<Filepath>              - Output file
--l --lang=<gles/msl/hlsl/glsl>      - Convert to shader language
--D --defines(=Defines)              - Preprocessor definitions, seperated by comma or ';'
--Y --invert-y                       - Invert position.y in vertex shader
--p --profile=<ProfileVersion>       - Shader profile version (HLSL: 40, 50, 60), (ES: 200, 300), (GLSL: 330, 400, 420)
--C --dumpc                          - Dump shader limits configuration
--I --include-dirs=<Directory(s)>    - Set include directory for <system> files, seperated by ';'
--P --preprocess                     - Dump preprocessed result to terminal
--N --cvar=<VariableName>            - Outputs Hex data to a C include file with a variable name
--F --flatten-ubos                   - Flatten UBOs, useful for ES2 shaders
--r --reflect(=Filepath)             - Output shader reflection information to a json file
--G --sgs                            - Output file should be packed SGS format
--b --bin                            - Compile to bytecode instead of source. requires ENABLE_D3D11_COMPILER build flag
--g --debug                          - Generate debug info for binary compilation, should come with --bin
--O --optimize                       - Optimize shader for release compilation
--S --silent                         - Does not output filename(s) after compile success
--i --input=<(null)>                 - Input shader source file. determined by extension (.vert/.frag/.comp)
--0 --validate                       - Only performs shader validatation and error checking
--E --err-format=<glslang/msvc>      - Output error format
--L --list-includes                  - List include files in shaders, does not generate any output files
+-h --help                            : Print this help text
+-V --version                         : Print version
+-v --vert=<Filepath>                 : Vertex shader source file
+-f --frag=<Filepath>                 : Fragment shader source file
+-c --compute=<Filepath>              : Compute shader source file
+-o --output=<Filepath>               : Output file
+-l --lang=<essl/msl/hlsl/glsl/spirv> : Convert to shader language
+-D --defines(=Defines)               : Preprocessor definitions, seperated by comma or ';'
+-Y --invert-y                        : Invert position.y in vertex shader
+-p --profile=<ProfileVersion>        : Shader profile version (HLSL: 40, 50, 60), (ES: 200, 300), (GLSL: 330, 400, 420)
+-C --dumpc                           : Dump shader limits configuration
+-I --include-dirs=<Directory(s)>     : Set include directory for <system> files, seperated by ';'
+-P --preprocess                      : Dump preprocessed result to terminal
+-N --cvar=<VariableName>             : Outputs Hex data to a C include file with a variable name
+-F --flatten-ubos                    : Flatten UBOs, useful for ES2 shaders
+-r --reflect(=Filepath)              : Output shader reflection information to a json file
+-G --sgs                             : Output file should be packed SGS format
+-b --bin                             : Compile to bytecode instead of source. requires ENABLE_D3D11_COMPILER build flag
+-g --debug                           : Generate debug info for binary compilation, should come with --bin
+-O --optimize                        : Optimize shader for release compilation
+-S --silent                          : Does not output filename(s) after compile success
+-i --input=<(null)>                  : Input shader source file. determined by extension (.vert/.frag/.comp)
+-0 --validate                        : Only performs shader validatation and error checking
+-E --err-format=<glslang/msvc>       : Output error format
+-L --list-includes                   : List include files in shaders, does not generate any output files
 
 Current supported shader stages are:
         - Vertex shader (--vert)
@@ -285,8 +287,8 @@ glslcc_target_compile_shaders_h(project_name "${shaders}")
 These properties can be assigned to shaders source files:
 
 - `GLSLCC_OUTPUT_DIRECTORY`: output directory path
-- `GLSLCC_SHADER_LANG`: shader language, `gles/msl/hlsl/glsl`. if not defined, it will be automatically selected by running platform
-- `GLSLCC_SHADER_VERSION`: shader profile version. default: _hlsl:50_, _gles:200_, _glsl:330_
+- `GLSLCC_SHADER_LANG`: shader language, `essl/msl/hlsl/glsl`. if not defined, it will be automatically selected by running platform
+- `GLSLCC_SHADER_VERSION`: shader profile version. default: _hlsl:50_, _essl:200_, _glsl:330_
 - `GLSLCC_OUTPUT_FILENAME`: compiled filename. default: `SOURCE_FILE.EXT.h`
 - `GLSLCC_COMPILE_FLAGS`: extra compilation flags to pass to `glslcc`
 - `COMPILE_DEFINITIONS`: compile definitions
