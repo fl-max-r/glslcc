@@ -1329,20 +1329,6 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
             }
 
             if (args.reflect) {
-                // turn back location attributs for reflection
-                if (!old_locs.empty()) {
-                    sx_assert(old_locs.size() == ress.stage_inputs.size());
-                    for (int i = 0; i < ress.stage_inputs.size(); i++) {
-                        spirv_cross::Resource& res = ress.stage_inputs[i];
-                        spirv_cross::Bitset mask = compiler->get_decoration_bitset(res.id);
-                        if (old_locs[i] != -1) {
-                            sx_assert(mask.get(spv::DecorationLocation));
-                            old_locs.push_back(compiler->get_decoration(res.id, spv::DecorationLocation));
-                            compiler->set_decoration(res.id, spv::DecorationLocation, old_locs[i]);
-                        }
-                    }
-                }
-
                 // output json reflection file
                 // if --reflect is defined, we just output to that file
                 // if --reflect is not defined, check cvar (.C file), and if set, output to the same file (out_filepath)
