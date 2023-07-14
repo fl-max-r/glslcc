@@ -1,5 +1,9 @@
 name: dist
 on:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+
   workflow_dispatch:
     # Inputs the workflow accepts.
     inputs:
@@ -17,16 +21,29 @@ jobs:
   dist:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-
     env:
       RELEASE_TAG_NAME: 'v${{github.event.inputs.version}}'
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event.inputs.version != '' }}
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
 
     - uses: actions/checkout@v3
+
+    - name: Check release version
+      shell: pwsh
+      id: check_ver
+      run: |
+        $commit_msg = "$(git show -s --format=%s)"
+        $matchInfo = [Regex]::Match($commit_msg, '\[release\s(\d+\.)+(-)?(\*|\d+)\]')
+        if ($matchInfo.Success) { $matchInfo = [Regex]::Match($matchInfo.Value, '(\d+\.)+(-)?(\*|\d+)') }
+        $release_ver = if($matchInfo.Success) { $matchInfo.Value } else { '${{github.event.inputs.version}}' }
+        echo "release_ver=$release_ver" >> $GITHUB_OUTPUT
+        echo "release_tag=v$release_ver" >> $GITHUB_OUTPUT
     
     - name: Download artifacts from workflow build
+      if: ${{ steps.check_ver.outputs.release_ver != '' }}
       uses: dawidd6/action-download-artifact@v2
       with:
         # Optional, GitHub token
@@ -35,21 +52,22 @@ jobs:
         workflow: build.yml
         workflow_conclusion: success
     - name: Create packages
+      if: ${{ steps.check_ver.outputs.release_ver != '' }}
       run: |
         ls -R glslcc-win64
         ls -R glslcc-linux
         ls -R glslcc-osx
         mkdir -p pkg_dir
-        prefix=glslcc-${{github.event.inputs.version}}
+        prefix=glslcc-${{ steps.check_ver.outputs.release_ver }}
         tar -czvf ./pkg_dir/$prefix-linux.tar.gz -C ./glslcc-linux glslcc
         tar -czvf ./pkg_dir/$prefix-osx.tar.gz -C ./glslcc-osx glslcc
         sh -c "cd ./glslcc-win64; zip ../pkg_dir/$prefix-win64.zip glslcc.exe" 
     - name: Publish to github release page
-      if: ${{ env.RELEASE_TAG_NAME != '' }}
+      if: ${{ steps.check_ver.outputs.release_ver != '' }}
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ env.RELEASE_TAG_NAME }}
-        name: ${{ env.RELEASE_TAG_NAME }}
+        tag_name: ${{ steps.check_ver.outputs.release_tag }}
+        name: ${{ steps.check_ver.outputs.release_tag }}
         files: |
           ./pkg_dir/*
       env:
