@@ -287,7 +287,7 @@ glslcc_target_compile_shaders_h(project_name "${shaders}")
 These properties can be assigned to shaders source files:
 
 - `GLSLCC_OUTPUT_DIRECTORY`: output directory path
-- `GLSLCC_SHADER_LANG`: shader language, `essl/msl/hlsl/glsl`. if not defined, it will be automatically selected by running platform
+- `GLSLCC_SHADER_LANG`: shader language, `essl/msl/hlsl/glsl/spirv`. if not defined, it will be automatically selected by running platform
 - `GLSLCC_SHADER_VERSION`: shader profile version. default: _hlsl:50_, _essl:200_, _glsl:330_
 - `GLSLCC_OUTPUT_FILENAME`: compiled filename. default: `SOURCE_FILE.EXT.h`
 - `GLSLCC_COMPILE_FLAGS`: extra compilation flags to pass to `glslcc`

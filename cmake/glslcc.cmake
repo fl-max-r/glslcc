@@ -24,7 +24,7 @@
 #   GLSLCC_SOURCE_GROUP: source group used in visual-studio and xcode IDEs
 #   GLSLCC_SHADER_LANG: shader language. if not provided, the value wil be selected automatically:
 #                       windows: hlsl
-#                       android/rpi: gles
+#                       android/rpi: essl
 #                       iOS/MacOS: msl (metal)
 #                       linux: glsl
 #   GLSLCC_SHADER_VERSION: shader version. if not provided, the value will be selected automatically: 
@@ -99,7 +99,7 @@ define_property(SOURCE PROPERTY GLSLCC_COMPILE_DEFINITIONS
 # PROPERTY:  shader language (optional)
 define_property(SOURCE PROPERTY GLSLCC_SHADER_LANG 
                 BRIEF_DOCS "Target language"
-                FULL_DOCS "Target language (gles/msl/hlsl/glsl)")
+                FULL_DOCS "Target language (essl/msl/hlsl/glsl/spirv)")
 # PROPERTY: shader_version (optional)
 define_property(SOURCE PROPERTY GLSLCC_SHADER_VERSION 
                 BRIEF_DOCS "Shader profile version"
@@ -184,17 +184,17 @@ function(glslcc__target_compile_shaders target_name file_type source_files)
         endif()
 
         # default shader languages
-        # windows: hlsl (50)
-        # linux: glsl (330)
-        # android: gles (200)
+        # windows: hlsl (50), spirv
+        # linux: glsl (330), spirv
+        # android: essl (200), spirv
         # ios, osx: msl
         if (NOT shader_lang)
             if (${glslcc_platform_name} STREQUAL "windows")
                 set(shader_lang "hlsl")
             elseif (${glslcc_platform_name} STREQUAL "android")
-                set(shader_lang "gles")
+                set(shader_lang "essl")
             elseif (${glslcc_platform_name} STREQUAL "rpi")
-                set(shader_lang "gles")                
+                set(shader_lang "essl")                
             elseif (${glslcc_platform_name} STREQUAL "ios")
                 set(shader_lang "msl")
             elseif (${glslcc_platform_name} STREQUAL "linux")
@@ -230,7 +230,7 @@ function(glslcc__target_compile_shaders target_name file_type source_files)
             # append system_name to output_path
             set(output_dir ${output_dir}/${shader_lang})
 
-            if (${shader_lang} STREQUAL "gles")
+            if (${shader_lang} STREQUAL "essl")
                 if (${shader_ver} STREQUAL "200")
                     set(output_dir ${output_dir}2)
                 elseif ( ${shader_ver} STREQUAL "300")
@@ -246,8 +246,8 @@ function(glslcc__target_compile_shaders target_name file_type source_files)
             message(FATAL_ERROR "GLSLCC_OUTPUT_DIRECTORY not set for file: ${first_file}")
         endif()
 
-        # use --flatten-ubos all GLSL (gles/glsl) shaders
-        if (${shader_lang} STREQUAL "gles" OR ${shader_lang} STREQUAL "glsl")
+        # use --flatten-ubos all GLSL (essl/glsl) shaders
+        if (${shader_lang} STREQUAL "essl" OR ${shader_lang} STREQUAL "glsl")
             set(arg_flatten_ubo "--flatten-ubos")
         endif()
 
