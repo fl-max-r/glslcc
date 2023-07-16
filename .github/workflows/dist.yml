@@ -55,11 +55,14 @@ jobs:
     - name: Create packages
       if: ${{ steps.check_ver.outputs.release_ver != '' }}
       run: |
-        ls -R glslcc-win64
-        ls -R glslcc-linux
-        ls -R glslcc-osx
         mkdir -p pkg_dir
         prefix=glslcc-${{ steps.check_ver.outputs.release_ver }}
+        ls -l glslcc-linux
+        ls -l glslcc-osx
+        sudo chmod u+x ./glslcc-linux/glslcc
+        sudo chmod u+x ./glslcc-osx/glslcc
+        ls -l glslcc-linux
+        ls -l glslcc-osx
         tar -czvf ./pkg_dir/$prefix-linux.tar.gz -C ./glslcc-linux glslcc
         tar -czvf ./pkg_dir/$prefix-osx.tar.gz -C ./glslcc-osx glslcc
         sh -c "cd ./glslcc-win64; zip ../pkg_dir/$prefix-win64.zip glslcc.exe" 
