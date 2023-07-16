@@ -40,6 +40,7 @@
 //                  Indent with spaces instead Tab when output cvar header file
 //                  Rename shader lang `gles` to `essl`
 //                  Add option -a --automap to remove binding and location requirement in shader
+//      1.8.1       Add option -n --no-suffix for don't add _fs or _vs suffix in output files 
 //
 #define _ALLOW_KEYWORD_MACROS
 
@@ -321,6 +322,7 @@ struct cmd_args {
     int preprocess;
     int flatten_ubos;
     int automap;
+    int no_suffix;
     int sgs_file;
     int reflect;
     int compile_bin;
@@ -1314,10 +1316,14 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 cvar_code += get_stage_name(stage);
                 filepath = args.out_filepath;
             } else {
-                char ext[32];
-                char basename[512];
-                sx_os_path_splitext(ext, sizeof(ext), basename, sizeof(basename), args.out_filepath);
-                filepath = std::string(basename) + std::string("_") + std::string(get_stage_name(stage)) + std::string(ext);
+                if (!args.no_suffix) {
+                    char ext[32];
+                    char basename[512];
+                    sx_os_path_splitext(ext, sizeof(ext), basename, sizeof(basename), args.out_filepath);
+                    filepath = std::string(basename) + std::string("_") + std::string(get_stage_name(stage)) + std::string(ext);
+                } else {
+                    filepath = args.out_filepath;
+                }
             }
             bool append = !cvar_code.empty() && (file_index > 0);
 
@@ -1794,6 +1800,7 @@ int main(int argc, char* argv[])
         { "output", 'o', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'o', "Output file", "Filepath" },
         { "lang", 'l', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'l', "Convert to shader language", "essl/msl/hlsl/glsl/spirv" },
         { "automap", 'a', SX_CMDLINE_OPTYPE_FLAG_SET, &args.automap, 1, "This option remove binding and location requirement in shader", 0x0 },
+        { "no-suffix", 'u', SX_CMDLINE_OPTYPE_FLAG_SET, &args.no_suffix, 1, "This option is for don't add _fs or _vs suffix in output file", 0x0 },
         { "defines", 'D', SX_CMDLINE_OPTYPE_OPTIONAL, 0x0, 'D', "Preprocessor definitions, seperated by comma or ';'", "Defines" },
         { "invert-y", 'Y', SX_CMDLINE_OPTYPE_FLAG_SET, &args.invert_y, 1, "Invert position.y in vertex shader", 0x0 },
         { "profile", 'p', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'p', "Shader profile version (HLSL: 40, 50, 60), (ES: 200, 300), (GLSL: 330, 400, 420)", "ProfileVersion" },
