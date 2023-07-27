@@ -40,7 +40,10 @@
 //                  Indent with spaces instead Tab when output cvar header file
 //                  Rename shader lang `gles` to `essl`
 //                  Add option -a --automap to remove binding and location requirement in shader
-//      1.8.1       Add option -n --no-suffix for don't add _fs or _vs suffix in output files 
+//      1.8.1       Add option -n --no-suffix for don't add _fs or _vs suffix in output files
+//      1.9.0       Report error when catch type which is not supported by glslcc
+//                  Auto fix struct alignment size_bytes for MSL
+//                  Remove mat3x4, mat4x3
 //
 #define _ALLOW_KEYWORD_MACROS
 
@@ -86,7 +89,7 @@
 #include "../3rdparty/sjson/sjson.h"
 
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 8
+#define VERSION_MINOR 9
 #define VERSION_SUB 0
 
 static const sx_alloc* g_alloc = sx_alloc_malloc();
@@ -571,8 +574,6 @@ static const uniform_type_mapping k_uniform_map[] = {
     { spirv_cross::SPIRType::Float, 2, 1, "float2", SGS_VERTEXFORMAT_FLOAT2 },
     { spirv_cross::SPIRType::Float, 3, 1, "float3", SGS_VERTEXFORMAT_FLOAT3 },
     { spirv_cross::SPIRType::Float, 4, 1, "float4", SGS_VERTEXFORMAT_FLOAT4 },
-    { spirv_cross::SPIRType::Float, 3, 4, "mat3x4", SGS_VERTEXFORMAT_MAT34 },
-    { spirv_cross::SPIRType::Float, 3, 4, "mat4x3", SGS_VERTEXFORMAT_MAT43 },
     { spirv_cross::SPIRType::Float, 3, 3, "mat3", SGS_VERTEXFORMAT_MAT3 },
     { spirv_cross::SPIRType::Float, 4, 4, "mat4", SGS_VERTEXFORMAT_MAT4 },
     { spirv_cross::SPIRType::Int, 1, 1, "int", SGS_VERTEXFORMAT_INT },
@@ -584,6 +585,22 @@ static const uniform_type_mapping k_uniform_map[] = {
     { spirv_cross::SPIRType::Half, 4, 3, "float3", SGS_VERTEXFORMAT_FLOAT3 },
     { spirv_cross::SPIRType::Half, 4, 4, "float4", SGS_VERTEXFORMAT_FLOAT4 }
 };
+
+static const char* spirv_basetype_to_name(int basetype)
+{
+    switch (basetype) {
+    case spirv_cross::SPIRType::Float:
+        return "float";
+    case spirv_cross::SPIRType::Int:
+        return "int";
+    case spirv_cross::SPIRType::Half:
+        return "half";
+    case spirv_cross::SPIRType::Boolean:
+        return "bool";
+    default:
+        return "unknown";
+    }
+}
 
 enum ImageFormat {
     ImageFormatUnknown = 0,
@@ -718,6 +735,10 @@ static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
                 return k_uniform_map[i].type_str;
             }
         }
+
+        fprintf(stderr, "Unsupported type: %s, vecsize: %u, colums: %u\n", spirv_basetype_to_name(type.basetype), type.vecsize, type.columns);
+        exit(-1);
+
         return "unknown";
     };
 
@@ -934,7 +955,25 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
                 return k_uniform_map[i].fourcc;
             }
         }
+
+        fprintf(stderr, "Unsupported type: %s, vecsize: %u, colums: %u\n", spirv_basetype_to_name(type.basetype), type.vecsize, type.columns);
+        exit(-1);
+
         return 0;
+    };
+
+    const bool is_msl = typeid(compiler) == typeid(spirv_cross::CompilerMSL);
+
+    auto resolve_variable_align = [=](const spirv_cross::SPIRType& type) -> int {
+        switch (type.basetype) {
+        case spirv_cross::SPIRType::Int:
+        case spirv_cross::SPIRType::Float:
+            return 4 * type.vecsize;
+        case spirv_cross::SPIRType::Half:
+            return 2 * type.vecsize;
+        default:
+            return 1;
+        }
     };
 
     for (auto& res : ress) {
@@ -992,9 +1031,16 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
                 u.array_size = array_size;
                 u.num_members = static_cast<uint16_t>(type.member_types.size());
             }
+
+            auto block_size_offset = w->pos + offsetof(sgs_refl_ub, size_bytes);
             sx_mem_write_var(w, u);
 
             if (u.num_members > 0) {
+                struct align_data_st {
+                    int offset = -1;
+                    int size_bytes = -1;
+                    int align = 1;
+                } align_data;
                 for (int member_idx = 0; member_idx < type.member_types.size(); ++member_idx) {
                     auto& member_type = compiler.get_type(type.member_types[member_idx]);
                     sgs_refl_ub_member um = { 0 };
@@ -1003,7 +1049,27 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
                     um.size_bytes = static_cast<uint32_t>(compiler.get_declared_struct_member_size(type, member_idx));
                     um.array_size = static_cast<uint16_t>(compute_array_size(member_type));
                     um.format = resolve_variable_type(member_type);
+
+                    if (is_msl) {
+                        auto align = resolve_variable_align(member_type);
+                        if (align_data.offset < um.offset) {
+                            align_data.offset = um.offset;
+                            align_data.size_bytes = um.size_bytes;
+                        }
+                        if (align_data.align < align) {
+                            align_data.align = align;
+                        }
+                    }
                     sx_mem_write_var(w, um);
+                }
+
+                if (is_msl && align_data.offset >= 0) {
+#define GLSLCC_ALIGN_VALUE(d, a) (((d) + ((a)-1)) & ~((a)-1))
+                    int& stored_block_size = *(int*)(w->data + block_size_offset);
+                    int aligned_block_size = GLSLCC_ALIGN_VALUE((align_data.offset + align_data.size_bytes), align_data.align);
+                    if (stored_block_size != aligned_block_size) {
+                        memcpy(&stored_block_size, &aligned_block_size, 4);
+                    }
                 }
             }
         } else if (res_type == RES_TYPE_TEXTURE) {
@@ -1346,8 +1412,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
 #endif
             } else {
                 // output code file
-                auto ok = (args.lang != SHADER_LANG_SPIRV) ? write_file(filepath, code.c_str(), cvar_code, append) : 
-                    write_file(filepath, reinterpret_cast<const char*>(spirv.data()), cvar_code, append, static_cast<int>(spirv.size() * sizeof(uint32_t)));
+                auto ok = (args.lang != SHADER_LANG_SPIRV) ? write_file(filepath, code.c_str(), cvar_code, append) : write_file(filepath, reinterpret_cast<const char*>(spirv.data()), cvar_code, append, static_cast<int>(spirv.size() * sizeof(uint32_t)));
                 if (!ok) {
                     printf("Writing to '%s' failed\n", filepath.c_str());
                     return -1;

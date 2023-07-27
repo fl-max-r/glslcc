@@ -31,8 +31,6 @@
 #define SGS_VERTEXFORMAT_INT4       sgs_makefourcc('I', 'N', 'T', '4')
 #define SGS_VERTEXFORMAT_MAT3       sgs_makefourcc('M', 'A', 'T', '3')
 #define SGS_VERTEXFORMAT_MAT4       sgs_makefourcc('M', 'A', 'T', '4')
-#define SGS_VERTEXFORMAT_MAT34      sgs_makefourcc('M', 'T', '3', '4')
-#define SGS_VERTEXFORMAT_MAT43      sgs_makefourcc('M', 'T', '4', '3')
 
 #define SGS_STAGE_VERTEX            sgs_makefourcc('V', 'E', 'R', 'T')
 #define SGS_STAGE_FRAGMENT          sgs_makefourcc('F', 'R', 'A', 'G')
