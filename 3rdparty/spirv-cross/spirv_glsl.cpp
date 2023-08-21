@@ -1024,7 +1024,6 @@ void CompilerGLSL::emit_header()
 	switch (execution.model)
 	{
 	case ExecutionModelVertex:
-        emit_es_precision_qualifiers();
 		if (options.ovr_multiview_view_count)
 			inputs.push_back(join("num_views = ", options.ovr_multiview_view_count));
 		break;
@@ -1123,7 +1122,45 @@ void CompilerGLSL::emit_header()
 	}
 
 	case ExecutionModelFragment:
-        emit_es_precision_qualifiers();
+		if (options.es)
+		{
+			switch (options.fragment.default_float_precision)
+			{
+			case Options::Lowp:
+				statement("precision lowp float;");
+				break;
+
+			case Options::Mediump:
+				statement("precision mediump float;");
+				break;
+
+			case Options::Highp:
+				statement("precision highp float;");
+				break;
+
+			default:
+				break;
+			}
+
+			switch (options.fragment.default_int_precision)
+			{
+			case Options::Lowp:
+				statement("precision lowp int;");
+				break;
+
+			case Options::Mediump:
+				statement("precision mediump int;");
+				break;
+
+			case Options::Highp:
+				statement("precision highp int;");
+				break;
+
+			default:
+				break;
+			}
+		}
+
 		if (execution.flags.get(ExecutionModeEarlyFragmentTests))
 			inputs.push_back("early_fragment_tests");
 		if (execution.flags.get(ExecutionModePostDepthCoverage))
@@ -7468,45 +7505,6 @@ static inline bool image_opcode_is_sample_no_dref(Op op)
 	default:
 		return false;
 	}
-}
-
-void CompilerGLSL::emit_es_precision_qualifiers()
-{
-    if (options.es) {
-        switch (options.fragment.default_float_precision) {
-        case Options::Lowp:
-                statement("precision lowp float;");
-                break;
-
-        case Options::Mediump:
-                statement("precision mediump float;");
-                break;
-
-        case Options::Highp:
-                statement("precision highp float;");
-                break;
-
-        default:
-                break;
-        }
-
-        switch (options.fragment.default_int_precision) {
-        case Options::Lowp:
-                statement("precision lowp int;");
-                break;
-
-        case Options::Mediump:
-                statement("precision mediump int;");
-                break;
-
-        case Options::Highp:
-                statement("precision highp int;");
-                break;
-
-        default:
-                break;
-        }
-    }
 }
 
 void CompilerGLSL::emit_sparse_feedback_temporaries(uint32_t result_type_id, uint32_t id, uint32_t &feedback_id,
