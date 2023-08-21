@@ -1024,6 +1024,7 @@ void CompilerGLSL::emit_header()
 	switch (execution.model)
 	{
 	case ExecutionModelVertex:
+        emit_es_precision_qualifiers();
 		if (options.ovr_multiview_view_count)
 			inputs.push_back(join("num_views = ", options.ovr_multiview_view_count));
 		break;
@@ -1122,45 +1123,7 @@ void CompilerGLSL::emit_header()
 	}
 
 	case ExecutionModelFragment:
-		if (options.es)
-		{
-			switch (options.fragment.default_float_precision)
-			{
-			case Options::Lowp:
-				statement("precision lowp float;");
-				break;
-
-			case Options::Mediump:
-				statement("precision mediump float;");
-				break;
-
-			case Options::Highp:
-				statement("precision highp float;");
-				break;
-
-			default:
-				break;
-			}
-
-			switch (options.fragment.default_int_precision)
-			{
-			case Options::Lowp:
-				statement("precision lowp int;");
-				break;
-
-			case Options::Mediump:
-				statement("precision mediump int;");
-				break;
-
-			case Options::Highp:
-				statement("precision highp int;");
-				break;
-
-			default:
-				break;
-			}
-		}
-
+        emit_es_precision_qualifiers();
 		if (execution.flags.get(ExecutionModeEarlyFragmentTests))
 			inputs.push_back("early_fragment_tests");
 		if (execution.flags.get(ExecutionModePostDepthCoverage))
@@ -1295,7 +1258,10 @@ string CompilerGLSL::to_interpolation_qualifiers(const Bitset &flags)
 	if (flags.get(DecorationInvariant) && (options.es || options.version >= 120))
 		res += "invariant ";
 	if (flags.get(DecorationPerPrimitiveEXT))
-	    res += "perprimitiveEXT ";
+	{
+		res += "perprimitiveEXT ";
+		require_extension_internal("GL_EXT_mesh_shader");
+	}
 
 	if (flags.get(DecorationExplicitInterpAMD))
 	{
@@ -1486,6 +1452,10 @@ const char *CompilerGLSL::format_to_glsl(spv::ImageFormat format)
 		return "rg8i";
 	case ImageFormatR16i:
 		return "r16i";
+	case ImageFormatR64i:
+		return "r64i";
+	case ImageFormatR64ui:
+		return "r64ui";
 	default:
 	case ImageFormatUnknown:
 		return nullptr;
@@ -3155,6 +3125,10 @@ bool CompilerGLSL::should_force_emit_builtin_block(StorageClass storage)
 		should_force = true;
 	}
 
+	// Either glslang bug or oversight, but global invariant position does not work in mesh shaders.
+	if (get_execution_model() == ExecutionModelMeshEXT && position_invariant)
+		should_force = true;
+
 	return should_force;
 }
 
@@ -3403,6 +3377,8 @@ void CompilerGLSL::emit_declared_builtin_block(StorageClass storage, ExecutionMo
 		auto itr = builtin_xfb_offsets.find(BuiltInPosition);
 		if (itr != end(builtin_xfb_offsets))
 			statement("layout(xfb_offset = ", itr->second, ") vec4 gl_Position;");
+		else if (position_invariant)
+			statement("invariant vec4 gl_Position;");
 		else
 			statement("vec4 gl_Position;");
 	}
@@ -3499,6 +3475,8 @@ void CompilerGLSL::emit_resources()
 		break;
 	}
 
+	bool global_invariant_position = position_invariant && (options.es || options.version >= 120);
+
 	// Emit custom gl_PerVertex for SSO compatibility.
 	if (options.separate_shader_objects && !options.es && execution.model != ExecutionModelFragment)
 	{
@@ -3509,11 +3487,13 @@ void CompilerGLSL::emit_resources()
 		case ExecutionModelTessellationEvaluation:
 			emit_declared_builtin_block(StorageClassInput, execution.model);
 			emit_declared_builtin_block(StorageClassOutput, execution.model);
+			global_invariant_position = false;
 			break;
 
 		case ExecutionModelVertex:
 		case ExecutionModelMeshEXT:
 			emit_declared_builtin_block(StorageClassOutput, execution.model);
+			global_invariant_position = false;
 			break;
 
 		default:
@@ -3523,6 +3503,7 @@ void CompilerGLSL::emit_resources()
 	else if (should_force_emit_builtin_block(StorageClassOutput))
 	{
 		emit_declared_builtin_block(StorageClassOutput, execution.model);
+		global_invariant_position = false;
 	}
 	else if (execution.geometry_passthrough)
 	{
@@ -3543,7 +3524,7 @@ void CompilerGLSL::emit_resources()
 			statement("");
 	}
 
-	if (position_invariant && (options.es || options.version >= 120))
+	if (global_invariant_position)
 	{
 		statement("invariant gl_Position;");
 		statement("");
@@ -7487,6 +7468,45 @@ static inline bool image_opcode_is_sample_no_dref(Op op)
 	default:
 		return false;
 	}
+}
+
+void CompilerGLSL::emit_es_precision_qualifiers()
+{
+    if (options.es) {
+        switch (options.fragment.default_float_precision) {
+        case Options::Lowp:
+                statement("precision lowp float;");
+                break;
+
+        case Options::Mediump:
+                statement("precision mediump float;");
+                break;
+
+        case Options::Highp:
+                statement("precision highp float;");
+                break;
+
+        default:
+                break;
+        }
+
+        switch (options.fragment.default_int_precision) {
+        case Options::Lowp:
+                statement("precision lowp int;");
+                break;
+
+        case Options::Mediump:
+                statement("precision mediump int;");
+                break;
+
+        case Options::Highp:
+                statement("precision highp int;");
+                break;
+
+        default:
+                break;
+        }
+    }
 }
 
 void CompilerGLSL::emit_sparse_feedback_temporaries(uint32_t result_type_id, uint32_t id, uint32_t &feedback_id,
@@ -15345,6 +15365,14 @@ string CompilerGLSL::image_type_glsl(const SPIRType &type, uint32_t id)
 
 	switch (imagetype.basetype)
 	{
+	case SPIRType::Int64:
+		res = "i64";
+		require_extension_internal("GL_EXT_shader_image_int64");
+		break;
+	case SPIRType::UInt64:
+		res = "u64";
+		require_extension_internal("GL_EXT_shader_image_int64");
+		break;
 	case SPIRType::Int:
 	case SPIRType::Short:
 	case SPIRType::SByte:

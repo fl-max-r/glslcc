@@ -44,6 +44,9 @@
 //      1.9.0       Report error when catch type which is not supported by glslcc
 //                  Auto fix struct alignment size_bytes for MSL
 //                  Remove mat3x4, mat4x3
+//      1.9.1       Vertex shader: emit precision qualifiers for essl profile
+//                  Update glslang to: 12.3.1
+//                  Update spirv-corss to: 633dc30 (Aug 17, 2023)
 //
 #define _ALLOW_KEYWORD_MACROS
 
@@ -90,7 +93,7 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 9
-#define VERSION_SUB 0
+#define VERSION_SUB 1
 
 static const sx_alloc* g_alloc = sx_alloc_malloc();
 static sgs_file* g_sgs = nullptr;
