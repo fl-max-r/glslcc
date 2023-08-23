@@ -118,6 +118,9 @@ public:
 		// Does not apply to shader storage or push constant blocks.
 		bool emit_uniform_buffer_as_plain_uniforms = false;
 
+		// Whether emit expanded uniforms for legacy GLSL 1.x
+		bool emit_expanded_uniforms = false;
+
 		// Emit OpLine directives if present in the module.
 		// May not correspond exactly to original source, but should be a good approximation.
 		bool emit_line_directives = false;
@@ -655,6 +658,7 @@ protected:
 	void emit_buffer_block_native(const SPIRVariable &var);
 	void emit_buffer_reference_block(uint32_t type_id, bool forward_declaration);
 	void emit_buffer_block_legacy(const SPIRVariable &var);
+    void emit_buffer_block_expanded(const SPIRVariable& var);
 	void emit_buffer_block_flattened(const SPIRVariable &type);
 	void fixup_implicit_builtin_block_names(spv::ExecutionModel model);
 	void emit_declared_builtin_block(spv::StorageClass storage, spv::ExecutionModel model);
@@ -1038,6 +1042,7 @@ private:
 	void set_composite_constant(ConstantID const_id, TypeID type_id, const SmallVector<ConstantID> &initializers);
 	TypeID get_composite_member_type(TypeID type_id, uint32_t member_idx);
 	std::unordered_map<uint32_t, SmallVector<ConstantID>> const_composite_insert_ids;
+	std::vector<std::string> expanded_uniform_block_patterns; // expanded ub pattern for replace
 };
 } // namespace SPIRV_CROSS_NAMESPACE
 

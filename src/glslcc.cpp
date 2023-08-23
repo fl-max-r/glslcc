@@ -48,6 +48,7 @@
 //                  Update glslang to: 12.3.1
 //                  Update spirv-corss to: 633dc30 (Aug 17, 2023)
 //      1.9.2       Revert `Vertex shader: emit precision qualifiers for essl profile`
+//      1.9.3       Expand uniform block members for GLSL/ESSL100
 //
 #define _ALLOW_KEYWORD_MACROS
 
@@ -94,7 +95,7 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 9
-#define VERSION_SUB 2
+#define VERSION_SUB 3
 
 static const sx_alloc* g_alloc = sx_alloc_malloc();
 static sgs_file* g_sgs = nullptr;
@@ -1316,6 +1317,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
             }
         }
 
+        opts.emit_expanded_uniforms = true;
         compiler->set_common_options(opts);
 
         std::string code;
@@ -1811,6 +1813,7 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
 
         glslang::SpvOptions spv_opts;
         spv_opts.validate = true;
+        spv_opts.disableOptimizer = false;
         spv::SpvBuildLogger logger;
         sx_assert(prog->getIntermediate(files[i].stage));
 

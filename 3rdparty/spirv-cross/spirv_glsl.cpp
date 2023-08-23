@@ -2295,11 +2295,49 @@ void CompilerGLSL::emit_buffer_block_legacy(const SPIRVariable &var)
 	auto &block_flags = ir.meta[type.self].decoration.decoration_flags;
 	bool block_flag = block_flags.get(DecorationBlock);
 	block_flags.clear(DecorationBlock);
-	emit_struct(type);
+	if (!options.emit_expanded_uniforms) {
+		emit_struct(type);
+		emit_uniform(var);
+		statement("");
+	} else {
+		emit_buffer_block_expanded(var);
+		auto pattern = to_name(var.self);
+		pattern += '.';
+		expanded_uniform_block_patterns.push_back(std::move(pattern));
+	}
 	if (block_flag)
 		block_flags.set(DecorationBlock);
-	emit_uniform(var);
-	statement("");
+}
+
+void CompilerGLSL::emit_buffer_block_expanded(const SPIRVariable& var)
+{
+	auto& type = get<SPIRType>(var.basetype);
+	
+	// Struct types can be stamped out multiple times
+	// with just different offsets, matrix layouts, etc ...
+	// Type-punning with these types is legal, which complicates things
+	// when we are storing struct and array types in an SSBO for example.
+	// If the type master is packed however, we can no longer assume that the struct declaration will be redundant.
+	if (type.type_alias != TypeID(0) && !has_extended_decoration(type.type_alias, SPIRVCrossDecorationBufferBlockRepacked))
+		return;
+
+	add_resource_name(type.self);
+	auto name = type_to_glsl(type);
+	
+	type.member_name_cache.clear();
+	
+	uint32_t i = 0;
+	bool emitted = false;
+	for (auto& member : type.member_types) {
+		add_member_name(type, i);
+		statement_inner("uniform ");
+		emit_struct_member(type, member, i);
+		i++;
+		emitted = true;
+	}
+	
+	if (emitted)
+		statement("");
 }
 
 void CompilerGLSL::emit_buffer_reference_block(uint32_t type_id, bool forward_declaration)
@@ -3701,6 +3739,7 @@ void CompilerGLSL::emit_resources()
 	}
 
 	// Output UBOs and SSBOs
+	expanded_uniform_block_patterns.clear();
 	ir.for_each_typed_id<SPIRVariable>([&](uint32_t, SPIRVariable &var) {
 		auto &type = this->get<SPIRType>(var.basetype);
 
@@ -11747,6 +11786,23 @@ CompilerGLSL::TemporaryCopy CompilerGLSL::handle_instruction_precision(const Ins
 	return {};
 }
 
+static int replace_all(std::string& string,
+    const std::string& replaced_key,
+    const std::string& replacing_key)
+{
+    if (replaced_key == replacing_key)
+            return 0;
+    int count = 0;
+    std::string::size_type pos = 0;
+    const size_t predicate = !replaced_key.empty() ? 0 : 1;
+    while ((pos = string.find(replaced_key, pos)) != std::wstring::npos) {
+        (void)string.replace(pos, replaced_key.length(), replacing_key);
+        pos += (replacing_key.length() + predicate);
+        ++count;
+    }
+    return count;
+}
+
 void CompilerGLSL::emit_instruction(const Instruction &instruction)
 {
 	auto ops = stream(instruction);
@@ -11834,6 +11890,13 @@ void CompilerGLSL::emit_instruction(const Instruction &instruction)
 			// If we are not forwarding the expression, we need to unpack and resolve any physical type remapping here before
 			// storing the expression to a temporary.
 			expr = to_unpacked_expression(ptr);
+		}
+
+		if (options.emit_expanded_uniforms) { // remove uniform block access prefix (xxx.)
+			const std::string empty_str;
+			for (auto& pattern : expanded_uniform_block_patterns) {
+				replace_all(expr, pattern, empty_str);
+			}
 		}
 
 		auto &type = get<SPIRType>(result_type);
