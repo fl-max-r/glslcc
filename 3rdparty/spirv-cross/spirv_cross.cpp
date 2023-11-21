@@ -864,6 +864,17 @@ unordered_set<VariableID> Compiler::get_active_interface_variables() const
 	return variables;
 }
 
+
+unordered_set<FunctionID> Compiler::get_functions() const
+{
+    unordered_set<FunctionID> functions;
+    ir.for_each_typed_id<SPIRFunction>([&](uint32_t, const SPIRFunction& fn) {
+        functions.insert(fn.self);
+    });
+    return functions;
+}
+
+
 void Compiler::set_enabled_interface_variables(std::unordered_set<VariableID> active_variables)
 {
 	active_interface_variables = std::move(active_variables);

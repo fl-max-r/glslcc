@@ -342,6 +342,7 @@ struct cmd_args {
     output_error_format err_format;
     const char* cvar;
     const char* reflect_filepath;
+    const char* symbol_prefix;
 };
 
 static void print_version()
@@ -1320,6 +1321,11 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
         opts.emit_expanded_uniforms = true;
         compiler->set_common_options(opts);
 
+        for (auto& fn : compiler->get_functions())
+            compiler->set_name(fn,
+                (args.symbol_prefix ? args.symbol_prefix : "")
+                    + compiler->get_name(fn));
+
         std::string code;
         // Prepare vertex attribute remap for HLSL
         if (args.lang == SHADER_LANG_HLSL) {
@@ -1891,6 +1897,7 @@ int main(int argc, char* argv[])
         { "validate", '0', SX_CMDLINE_OPTYPE_FLAG_SET, &args.validate, 1, "Only performs shader validatation and error checking", 0x0 },
         { "err-format", 'E', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'E', "Output error format", "glslang/msvc" },
         { "list-includes", 'L', SX_CMDLINE_OPTYPE_FLAG_SET, &args.list_includes, 1, "List include files in shaders, does not generate any output files", 0x0 },
+        { "symbol-prefix", 'P', SX_CMDLINE_OPTYPE_OPTIONAL, 0x0, 'P', "Prefix to add to symbols in generated output", "VariableName" },
         SX_CMDLINE_OPT_END
     };
     sx_cmdline_context* cmdline = sx_cmdline_create_context(g_alloc, argc, (const char**)argv, opts);
@@ -1951,6 +1958,9 @@ int main(int argc, char* argv[])
             break;
         case 'E':
             args.err_format = parse_output_errorformat(arg);
+            break;
+        case 'P':
+            args.symbol_prefix = arg;
             break;
         default:
             break;

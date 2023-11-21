@@ -294,6 +294,9 @@ public:
 	// this set can be moved to set_enabled_interface_variables().
 	std::unordered_set<VariableID> get_active_interface_variables() const;
 
+	std::unordered_set<FunctionID> get_functions() const;
+
+
 	// Sets the interface variables which are used during compilation.
 	// By default, all variables are used.
 	// Once set, compile() will only consider the set in active_variables.
