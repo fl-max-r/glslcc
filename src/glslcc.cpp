@@ -586,10 +586,15 @@ static const uniform_type_mapping k_uniform_map[] = {
     { spirv_cross::SPIRType::Int, 2, 1, "int2", SGS_VERTEXFORMAT_INT2 },
     { spirv_cross::SPIRType::Int, 3, 1, "int3", SGS_VERTEXFORMAT_INT3 },
     { spirv_cross::SPIRType::Int, 4, 1, "int4", SGS_VERTEXFORMAT_INT4 },
+    { spirv_cross::SPIRType::UInt, 1, 1, "uint", SGS_VERTEXFORMAT_INT },
+    { spirv_cross::SPIRType::UInt, 2, 1, "uint2", SGS_VERTEXFORMAT_INT2 },
+    { spirv_cross::SPIRType::UInt, 3, 1, "uint3", SGS_VERTEXFORMAT_INT3 },
+    { spirv_cross::SPIRType::UInt, 4, 1, "uint4", SGS_VERTEXFORMAT_INT4 },
     { spirv_cross::SPIRType::Half, 4, 1, "float", SGS_VERTEXFORMAT_FLOAT },
     { spirv_cross::SPIRType::Half, 4, 2, "float2", SGS_VERTEXFORMAT_FLOAT2 },
     { spirv_cross::SPIRType::Half, 4, 3, "float3", SGS_VERTEXFORMAT_FLOAT3 },
-    { spirv_cross::SPIRType::Half, 4, 4, "float4", SGS_VERTEXFORMAT_FLOAT4 }
+    { spirv_cross::SPIRType::Half, 4, 4, "float4", SGS_VERTEXFORMAT_FLOAT4 },
+    { spirv_cross::SPIRType::Boolean, 1, 1, "bool", SGS_VERTEXFORMAT_INT },
 };
 
 static const char* spirv_basetype_to_name(int basetype)
@@ -599,11 +604,14 @@ static const char* spirv_basetype_to_name(int basetype)
         return "float";
     case spirv_cross::SPIRType::Int:
         return "int";
+    case spirv_cross::SPIRType::UInt:
+        return "uint";
     case spirv_cross::SPIRType::Half:
         return "half";
     case spirv_cross::SPIRType::Boolean:
         return "bool";
     default:
+        fprintf(stderr, "unknown %d\n", basetype);
         return "unknown";
     }
 }
